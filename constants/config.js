@@ -5,6 +5,7 @@ const corsOptions = {
       "https://chat-app-frontend-ivory.vercel.app",
       process.env.CLIENT_URL,
     ],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   };

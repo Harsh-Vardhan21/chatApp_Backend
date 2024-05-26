@@ -18,7 +18,7 @@ const isAuthenticated = TryCatch((req, res, next) => {
 });
 
 const adminOnly = (req, res, next) => {
-  const token = req.cookies["chatapp-admin-token"];
+  const token = req.cookies["chatApp-admin-token"];
 
   if (!token)
     return next(new ErrorHandler("Only Admin can access this route", 401));
