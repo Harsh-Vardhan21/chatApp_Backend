@@ -88,6 +88,7 @@ const getMyGroups = TryCatch(async (req, res, next) => {
   });
 });
 
+
 const addMembers = TryCatch(async (req, res, next) => {
   const { chatId, members } = req.body;
 
@@ -132,6 +133,7 @@ const addMembers = TryCatch(async (req, res, next) => {
     message: "Members added successfully",
   });
 });
+
 
 const removeMember = TryCatch(async (req, res, next) => {
   const { userId, chatId } = req.body;

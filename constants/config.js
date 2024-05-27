@@ -8,7 +8,6 @@ const corsOptions = {
   credentials: true,
 };
 
-  
 const CHATAPP_TOKEN = "chatApp-token";
-  
-export { corsOptions, CHATAPP_TOKEN }; 
+
+export { corsOptions, CHATAPP_TOKEN };

@@ -13,13 +13,12 @@ import {
 } from "../utils/features.js";
 import { ErrorHandler } from "../utils/utility.js";
 
-// Create a new user and save it to the database and save token in cookie
 const newUser = TryCatch(async (req, res, next) => {
   const { name, username, password, bio } = req.body;
 
   const file = req.file;
 
-  if (!file) return next(new ErrorHandler("Please Upload Avatar"));
+  if (!file) return next(new ErrorHandler("Please Upload Avatar", 400));
 
   const result = await uploadFilesToCloudinary([file]);
 
@@ -39,7 +38,6 @@ const newUser = TryCatch(async (req, res, next) => {
   sendToken(res, user, 201, "User created");
 });
 
-// Login user and save token in cookie
 const login = TryCatch(async (req, res, next) => {
   const { username, password } = req.body;
 
@@ -49,8 +47,7 @@ const login = TryCatch(async (req, res, next) => {
 
   const isMatch = await compare(password, user.password);
 
-  if (!isMatch)
-    return next(new ErrorHandler("Invalid Username or Password", 404));
+  if (!isMatch) return next(new ErrorHandler("Invalid Password", 401));
 
   sendToken(res, user, 200, `Welcome Back, ${user.name}`);
 });
@@ -66,14 +63,12 @@ const getMyProfile = TryCatch(async (req, res, next) => {
   });
 });
 
-const logout = TryCatch(async (req, res) => {
+const logout = TryCatch(async (req, res, next) => {
   return res
     .status(200)
-    .cookie("chatApp-token", "", { 
-      ...cookieOptions, 
+    .cookie("chatApp-token", "", {
+      ...cookieOptions,
       maxAge: 0,
-      path: '/',
-      domain: 'chat-app-frontend-ivory.vercel.app',
     })
     .json({
       success: true,
@@ -81,32 +76,31 @@ const logout = TryCatch(async (req, res) => {
     });
 });
 
-const searchUser = TryCatch(async (req, res) => {
-  const { name = "" } = req.query;
+const searchUser = TryCatch(async (req, res, next) => {
+  try {
+    const { name = "" } = req.query;
 
-  // Finding All my chats
-  const myChats = await Chat.find({ groupChat: false, members: req.user });
+    const myChats = await Chat.find({ groupChat: false, members: req.user });
+    const allUsersFromMyChats = myChats.flatMap((chat) => chat.members);
 
-  //  extracting All Users from my chats means friends or people I have chatted with
-  const allUsersFromMyChats = myChats.flatMap((chat) => chat.members);
+    const allUsersExceptMeAndFriends = await User.find({
+      _id: { $nin: allUsersFromMyChats },
+      name: { $regex: name, $options: "i" },
+    });
 
-  // Finding all users except me and my friends
-  const allUsersExceptMeAndFriends = await User.find({
-    _id: { $nin: allUsersFromMyChats },
-    name: { $regex: name, $options: "i" },
-  });
+    const users = allUsersExceptMeAndFriends.map(({ _id, name, avatar }) => ({
+      _id,
+      name,
+      avatar: avatar.url,
+    }));
 
-  // Modifying the response
-  const users = allUsersExceptMeAndFriends.map(({ _id, name, avatar }) => ({
-    _id,
-    name,
-    avatar: avatar.url,
-  }));
-
-  return res.status(200).json({
-    success: true,
-    users,
-  });
+    return res.status(200).json({
+      success: true,
+      users,
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 const sendFriendRequest = TryCatch(async (req, res, next) => {
@@ -176,7 +170,7 @@ const acceptFriendRequest = TryCatch(async (req, res, next) => {
   });
 });
 
-const getMyNotifications = TryCatch(async (req, res) => {
+const getMyNotifications = TryCatch(async (req, res, next) => {
   const requests = await Request.find({ receiver: req.user }).populate(
     "sender",
     "name avatar"
@@ -197,40 +191,44 @@ const getMyNotifications = TryCatch(async (req, res) => {
   });
 });
 
-const getMyFriends = TryCatch(async (req, res) => {
-  const chatId = req.query.chatId;
+const getMyFriends = TryCatch(async (req, res, next) => {
+  try {
+    const chatId = req.query.chatId;
 
-  const chats = await Chat.find({
-    members: req.user,
-    groupChat: false,
-  }).populate("members", "name avatar");
+    const chats = await Chat.find({
+      members: req.user,
+      groupChat: false,
+    }).populate("members", "name avatar");
 
-  const friends = chats.map(({ members }) => {
-    const otherUser = getOtherMember(members, req.user);
+    const friends = chats.map(({ members }) => {
+      const otherUser = getOtherMember(members, req.user);
 
-    return {
-      _id: otherUser._id,
-      name: otherUser.name,
-      avatar: otherUser.avatar.url,
-    };
-  });
-
-  if (chatId) {
-    const chat = await Chat.findById(chatId);
-
-    const availableFriends = friends.filter(
-      (friend) => !chat.members.includes(friend._id)
-    );
-
-    return res.status(200).json({
-      success: true,
-      friends: availableFriends,
+      return {
+        _id: otherUser._id,
+        name: otherUser.name,
+        avatar: otherUser.avatar.url,
+      };
     });
-  } else {
-    return res.status(200).json({
-      success: true,
-      friends,
-    });
+
+    if (chatId) {
+      const chat = await Chat.findById(chatId);
+
+      const availableFriends = friends.filter(
+        (friend) => !chat.members.includes(friend._id)
+      );
+
+      return res.status(200).json({
+        success: true,
+        friends: availableFriends,
+      });
+    } else {
+      return res.status(200).json({
+        success: true,
+        friends,
+      });
+    }
+  } catch (error) {
+    next(error);
   }
 });
 

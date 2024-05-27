@@ -44,7 +44,6 @@ const createGroupChats = async (numChats) => {
         const randomIndex = Math.floor(Math.random() * users.length);
         const randomUser = users[randomIndex];
 
-        // Ensure the same user is not added twice
         if (!members.includes(randomUser)) {
           members.push(randomUser);
         }

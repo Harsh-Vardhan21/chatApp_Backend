@@ -21,7 +21,6 @@ const connectDB = (uri) => {
     });
 };
 
-
 const sendToken = (res, user, code, message) => {
   const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET);
 
@@ -68,7 +67,7 @@ const uploadFilesToCloudinary = async (files = []) => {
   }
 };
 
-const deletFilesFromCloudinary = async (public_ids) => {
+const deleteFilesFromCloudinary = async (public_ids) => {
   // Delete files from cloudinary
 };
 
@@ -77,6 +76,6 @@ export {
   sendToken,
   cookieOptions,
   emitEvent,
-  deletFilesFromCloudinary,
+  deleteFilesFromCloudinary,
   uploadFilesToCloudinary,
 };
