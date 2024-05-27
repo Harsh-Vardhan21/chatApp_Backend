@@ -69,7 +69,12 @@ const getMyProfile = TryCatch(async (req, res, next) => {
 const logout = TryCatch(async (req, res) => {
   return res
     .status(200)
-    .cookie("chatApp-token", "", { ...cookieOptions, maxAge: 0 })
+    .cookie("chatApp-token", "", { 
+      ...cookieOptions, 
+      maxAge: 0,
+      path: '/',
+      domain: 'chat-app-frontend-ivory.vercel.app',
+    })
     .json({
       success: true,
       message: "Logged out successfully",
