@@ -13,18 +13,17 @@ const cookieOptions = {
 
 const connectDB = (uri) => {
   mongoose
-    .connect(uri, { dbName: "ChatApp" })
+    .connect(uri, { dbName: "Chattu" })
     .then((data) => console.log(`Connected to DB: ${data.connection.host}`))
     .catch((err) => {
-      console.error("Error connecting to the database:", err);
-      process.exit(1);
+      throw err;
     });
 };
 
 const sendToken = (res, user, code, message) => {
   const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET);
 
-  return res.status(code).cookie("chatApp-token", token, cookieOptions).json({
+  return res.status(code).cookie("chattu-token", token, cookieOptions).json({
     success: true,
     user,
     message,
@@ -67,7 +66,7 @@ const uploadFilesToCloudinary = async (files = []) => {
   }
 };
 
-const deleteFilesFromCloudinary = async (public_ids) => {
+const deletFilesFromCloudinary = async (public_ids) => {
   // Delete files from cloudinary
 };
 
@@ -76,6 +75,6 @@ export {
   sendToken,
   cookieOptions,
   emitEvent,
-  deleteFilesFromCloudinary,
+  deletFilesFromCloudinary,
   uploadFilesToCloudinary,
 };

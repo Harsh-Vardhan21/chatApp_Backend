@@ -2,7 +2,7 @@ import { TryCatch } from "../middlewares/error.js";
 import { ErrorHandler } from "../utils/utility.js";
 import { Chat } from "../models/chat.js";
 import {
-  deleteFilesFromCloudinary,
+  deletFilesFromCloudinary,
   emitEvent,
   uploadFilesToCloudinary,
 } from "../utils/features.js";
@@ -88,7 +88,6 @@ const getMyGroups = TryCatch(async (req, res, next) => {
   });
 });
 
-
 const addMembers = TryCatch(async (req, res, next) => {
   const { chatId, members } = req.body;
 
@@ -133,7 +132,6 @@ const addMembers = TryCatch(async (req, res, next) => {
     message: "Members added successfully",
   });
 });
-
 
 const removeMember = TryCatch(async (req, res, next) => {
   const { userId, chatId } = req.body;
@@ -361,7 +359,7 @@ const deleteChat = TryCatch(async (req, res, next) => {
   );
 
   await Promise.all([
-    deleteFilesFromCloudinary(public_ids),
+    deletFilesFromCloudinary(public_ids),
     chat.deleteOne(),
     Message.deleteMany({ chat: chatId }),
   ]);

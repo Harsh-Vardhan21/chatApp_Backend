@@ -37,12 +37,7 @@ const adminSecretKey = process.env.ADMIN_SECRET_KEY || "adsasdsdfsdfsdfd";
 const userSocketIDs = new Map();
 const onlineUsers = new Set();
 
-try {
-  connectDB(mongoURI);
-} catch (error) {
-  console.error("Error connecting to the database:", error);
-  process.exit(1);
-}
+connectDB(mongoURI);
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -80,52 +75,70 @@ io.use((socket, next) => {
 });
 
 io.on("connection", (socket) => {
-  try {
-    const user = socket.user;
-    if (!user) {
-      throw new Error("User not authenticated");
-    }
-    userSocketIDs.set(user._id.toString(), socket.id);
+  const user = socket.user;
+  userSocketIDs.set(user._id.toString(), socket.id);
 
-    socket.on(NEW_MESSAGE, async ({ chatId, members, message }) => {
-      if (!chatId || !members || !message) {
-        throw new Error("Invalid message data");
-      }
-      const messageForRealTime = {
-        content: message,
-        _id: uuid(),
-        sender: {
-          _id: user._id,
-          name: user.name,
-        },
-        chat: chatId,
-        createdAt: new Date().toISOString(),
-      };
+  socket.on(NEW_MESSAGE, async ({ chatId, members, message }) => {
+    const messageForRealTime = {
+      content: message,
+      _id: uuid(),
+      sender: {
+        _id: user._id,
+        name: user.name,
+      },
+      chat: chatId,
+      createdAt: new Date().toISOString(),
+    };
 
-      const messageForDB = {
-        content: message,
-        sender: user._id,
-        chat: chatId,
-      };
+    const messageForDB = {
+      content: message,
+      sender: user._id,
+      chat: chatId,
+    };
 
-      const membersSocket = getSockets(members);
-      io.to(membersSocket).emit(NEW_MESSAGE, {
-        chatId,
-        message: messageForRealTime,
-      });
-      io.to(membersSocket).emit(NEW_MESSAGE_ALERT, { chatId });
-
-      try {
-        await Message.create(messageForDB);
-      } catch (error) {
-        throw new Error("Error creating message in the database");
-      }
+    const membersSocket = getSockets(members);
+    io.to(membersSocket).emit(NEW_MESSAGE, {
+      chatId,
+      message: messageForRealTime,
     });
+    io.to(membersSocket).emit(NEW_MESSAGE_ALERT, { chatId });
 
-    // Implement other socket event listeners here
-  } catch (error) {
-    console.error("Socket error:", error);
-  }
+    try {
+      await Message.create(messageForDB);
+    } catch (error) {
+      throw new Error(error);
+    }
+  });
+
+  socket.on(START_TYPING, ({ members, chatId }) => {
+    const membersSockets = getSockets(members);
+    socket.to(membersSockets).emit(START_TYPING, { chatId });
+  });
+
+  socket.on(STOP_TYPING, ({ members, chatId }) => {
+    const membersSockets = getSockets(members);
+    socket.to(membersSockets).emit(STOP_TYPING, { chatId });
+  });
+
+  socket.on(CHAT_JOINED, ({ userId, members }) => {
+    onlineUsers.add(userId.toString());
+
+    const membersSocket = getSockets(members);
+    io.to(membersSocket).emit(ONLINE_USERS, Array.from(onlineUsers));
+  });
+
+  socket.on(CHAT_LEAVED, ({ userId, members }) => {
+    onlineUsers.delete(userId.toString());
+
+    const membersSocket = getSockets(members);
+    io.to(membersSocket).emit(ONLINE_USERS, Array.from(onlineUsers));
+  });
+
+  socket.on("disconnect", () => {
+    userSocketIDs.delete(user._id.toString());
+    onlineUsers.delete(user._id.toString());
+    socket.broadcast.emit(ONLINE_USERS, Array.from(onlineUsers));
+  });
 });
 
 app.use(errorMiddleware);

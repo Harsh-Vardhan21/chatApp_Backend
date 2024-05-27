@@ -13,12 +13,13 @@ import {
 } from "../utils/features.js";
 import { ErrorHandler } from "../utils/utility.js";
 
+// Create a new user and save it to the database and save token in cookie
 const newUser = TryCatch(async (req, res, next) => {
   const { name, username, password, bio } = req.body;
 
   const file = req.file;
 
-  if (!file) return next(new ErrorHandler("Please Upload Avatar", 400));
+  if (!file) return next(new ErrorHandler("Please Upload Avatar"));
 
   const result = await uploadFilesToCloudinary([file]);
 
@@ -38,6 +39,7 @@ const newUser = TryCatch(async (req, res, next) => {
   sendToken(res, user, 201, "User created");
 });
 
+// Login user and save token in cookie
 const login = TryCatch(async (req, res, next) => {
   const { username, password } = req.body;
 
@@ -47,7 +49,8 @@ const login = TryCatch(async (req, res, next) => {
 
   const isMatch = await compare(password, user.password);
 
-  if (!isMatch) return next(new ErrorHandler("Invalid Password", 401));
+  if (!isMatch)
+    return next(new ErrorHandler("Invalid Username or Password", 404));
 
   sendToken(res, user, 200, `Welcome Back, ${user.name}`);
 });
@@ -63,44 +66,42 @@ const getMyProfile = TryCatch(async (req, res, next) => {
   });
 });
 
-const logout = TryCatch(async (req, res, next) => {
+const logout = TryCatch(async (req, res) => {
   return res
     .status(200)
-    .cookie("chatApp-token", "", {
-      ...cookieOptions,
-      maxAge: 0,
-    })
+    .cookie("chattu-token", "", { ...cookieOptions, maxAge: 0 })
     .json({
       success: true,
       message: "Logged out successfully",
     });
 });
 
-const searchUser = TryCatch(async (req, res, next) => {
-  try {
-    const { name = "" } = req.query;
+const searchUser = TryCatch(async (req, res) => {
+  const { name = "" } = req.query;
 
-    const myChats = await Chat.find({ groupChat: false, members: req.user });
-    const allUsersFromMyChats = myChats.flatMap((chat) => chat.members);
+  // Finding All my chats
+  const myChats = await Chat.find({ groupChat: false, members: req.user });
 
-    const allUsersExceptMeAndFriends = await User.find({
-      _id: { $nin: allUsersFromMyChats },
-      name: { $regex: name, $options: "i" },
-    });
+  //  extracting All Users from my chats means friends or people I have chatted with
+  const allUsersFromMyChats = myChats.flatMap((chat) => chat.members);
 
-    const users = allUsersExceptMeAndFriends.map(({ _id, name, avatar }) => ({
-      _id,
-      name,
-      avatar: avatar.url,
-    }));
+  // Finding all users except me and my friends
+  const allUsersExceptMeAndFriends = await User.find({
+    _id: { $nin: allUsersFromMyChats },
+    name: { $regex: name, $options: "i" },
+  });
 
-    return res.status(200).json({
-      success: true,
-      users,
-    });
-  } catch (error) {
-    next(error);
-  }
+  // Modifying the response
+  const users = allUsersExceptMeAndFriends.map(({ _id, name, avatar }) => ({
+    _id,
+    name,
+    avatar: avatar.url,
+  }));
+
+  return res.status(200).json({
+    success: true,
+    users,
+  });
 });
 
 const sendFriendRequest = TryCatch(async (req, res, next) => {
@@ -170,7 +171,7 @@ const acceptFriendRequest = TryCatch(async (req, res, next) => {
   });
 });
 
-const getMyNotifications = TryCatch(async (req, res, next) => {
+const getMyNotifications = TryCatch(async (req, res) => {
   const requests = await Request.find({ receiver: req.user }).populate(
     "sender",
     "name avatar"
@@ -191,44 +192,40 @@ const getMyNotifications = TryCatch(async (req, res, next) => {
   });
 });
 
-const getMyFriends = TryCatch(async (req, res, next) => {
-  try {
-    const chatId = req.query.chatId;
+const getMyFriends = TryCatch(async (req, res) => {
+  const chatId = req.query.chatId;
 
-    const chats = await Chat.find({
-      members: req.user,
-      groupChat: false,
-    }).populate("members", "name avatar");
+  const chats = await Chat.find({
+    members: req.user,
+    groupChat: false,
+  }).populate("members", "name avatar");
 
-    const friends = chats.map(({ members }) => {
-      const otherUser = getOtherMember(members, req.user);
+  const friends = chats.map(({ members }) => {
+    const otherUser = getOtherMember(members, req.user);
 
-      return {
-        _id: otherUser._id,
-        name: otherUser.name,
-        avatar: otherUser.avatar.url,
-      };
+    return {
+      _id: otherUser._id,
+      name: otherUser.name,
+      avatar: otherUser.avatar.url,
+    };
+  });
+
+  if (chatId) {
+    const chat = await Chat.findById(chatId);
+
+    const availableFriends = friends.filter(
+      (friend) => !chat.members.includes(friend._id)
+    );
+
+    return res.status(200).json({
+      success: true,
+      friends: availableFriends,
     });
-
-    if (chatId) {
-      const chat = await Chat.findById(chatId);
-
-      const availableFriends = friends.filter(
-        (friend) => !chat.members.includes(friend._id)
-      );
-
-      return res.status(200).json({
-        success: true,
-        friends: availableFriends,
-      });
-    } else {
-      return res.status(200).json({
-        success: true,
-        friends,
-      });
-    }
-  } catch (error) {
-    next(error);
+  } else {
+    return res.status(200).json({
+      success: true,
+      friends,
+    });
   }
 });
 
